@@ -10,7 +10,7 @@
 using namespace std;
 
 // Makefile needed
-// -lwiringPi 
+// -lwiringPi
 
 // ICE40 chip select GPIO22, Header Pin 15, Wiring pi Pin 3
 // ICE40 reset       GPIO25, Header Pin 22, Wiring pi Pin 6
@@ -27,7 +27,7 @@ using namespace std;
 int main (int argc, char** argv){
   wiringPiSetup () ;
   // SPI Mode 3, CPOL=1 CPHA=1, Clock Idle High, Sample on rising edge
-  wiringPiSPISetupMode(SPI_CHANNEL, 5000000, 3);
+  wiringPiSPISetupMode(SPI_CHANNEL, 1000000, 3);
 
   // Import file
   ifstream firmware;
