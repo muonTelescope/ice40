@@ -14,6 +14,7 @@ class ICE40 {
   void setup(const uint8_t SPI_CHANNEL, const uint32_t clkSpeed);
   void writeFile(const char filename[]);
   void burnData(unsigned char *data, uint16_t length);
+  void hexDump(unsigned char *data, uint16_t length);
   void clear();
 
   uint8_t _CS_PIN;

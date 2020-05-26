@@ -51,15 +51,9 @@ void ICE40::writeFile(const char filename[]){
   bitstreamSize = (int)bitstream.tellg() - bitstreamSize;
   bitstream.seekg (0);
 
-  // int *readBuffer = malloc(sizeof(char));
-  // (sizeof(readBuffer)/sizeof(readBuffer[0]))
-  // unsigned char *data = (unsigned char *) malloc( sizeof(*data) * (bitstreamSize+1));
-  printf("%X \n", bitstreamSize);
-  bitstreamSize = 0x1CA6;
-  printf("%X \n", bitstreamSize);
   unsigned char *data = new unsigned char[bitstreamSize+1];
   char readBuffer[16];
-  for(int i = 0 ; i < (bitstreamSize/16) + 1 ; i++ ){
+  for(int i = 0 ; i < (bitstreamSize/16) ; i++ ){
     bitstream.read(readBuffer, 16);
     for(int j = 0 ; j < 8*2 ; j+=2 ){
       data[i*16 + j] = readBuffer[j];
@@ -67,19 +61,14 @@ void ICE40::writeFile(const char filename[]){
     }
   }
 
-  uint8_t lineWidth = 16;
-  for(int i = 0 ; i < bitstreamSize ; i+=lineWidth ){
-    printf("%04x  ", i);
-    for(int j = 0 ; j < lineWidth ; j++ ){
-      printf("%02x", data[i+j]);
-    }
-  printf("\n");
-  }
+  //Print out file
+  hexDump(data, bitstreamSize);
 
   bitstream.close();
 
   burnData(data, bitstreamSize);
 
+  delete [] data;
 
 }
 
@@ -119,4 +108,16 @@ void ICE40::clear(){
   digitalWrite (_RST_PIN,  HIGH);  
   // Wait 1200us for internal memor clear 
   delayMicroseconds (1200);
+}
+
+void ICE40::hexDump(unsigned char *data, uint16_t length){
+    //Print out file
+  const uint8_t lineWidth = 16;
+  for(int i = 0 ; i < length ; i+=lineWidth ){
+    printf("%04x  ", i);
+    for(int j = 0 ; j < lineWidth ; j++ ){
+      printf("%02x", data[i+j]);
+    }
+  printf("\n");
+  }
 }
