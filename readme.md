@@ -7,5 +7,5 @@ make
 ```
 
 ```bash
-sudo ./ice40 <filename>.bin
+sudo ./main <filename>.bin
 ```

@@ -1,13 +1,13 @@
 CXX = g++
-CXXFLAGS = -std=c++11
+CXXFLAGS = -std=c++11 -I.
 LDLIBS = -lwiringPi
 
-HEADERS = 
-OBJECTS = ice40.o 
+HEADERS = ice40.h
+OBJECTS = main.o ice40.o 
 
-default: ice40
+default: main
 
-ice40: $(OBJECTS)
+main: $(OBJECTS)
 	$(CXX) $(CXXFLAGS) $^ $(LDLIBS) -o $@
 
 %.o: ./%.cpp
@@ -17,4 +17,4 @@ $(OBJECTS): $(HEADERS)
 
 clean:
 	-rm -f $(OBJECTS)
-	-rm -f ice40
+	-rm -f main

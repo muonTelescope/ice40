@@ -7,47 +7,68 @@
 #include <wiringPi.h>
 #include <wiringPiSPI.h>
 
+#include "ice40.h"
+
 using namespace std;
 
-// Makefile needed
-// -lwiringPi
+// Instatiates a new class and sets up the pins
+ICE40::ICE40(const uint8_t CS_PIN, const uint8_t DONE_PIN, const uint8_t RST_PIN, const uint8_t SPI_CHANNEL){
+  _CS_PIN = CS_PIN;
+  _DONE_PIN = DONE_PIN;
+  _RST_PIN = RST_PIN;
+  _SPI_CHANNEL = SPI_CHANNEL;
+  setup(_SPI_CHANNEL, 1000000);
+}
 
-// ICE40 chip select GPIO22, Header Pin 15, Wiring pi Pin 3
-// ICE40 reset       GPIO25, Header Pin 22, Wiring pi Pin 6
-// ICE40 done        GPIO24, Header Pin 18, Wiring pi Pin 5
-// SPI Channel 0
-
-#define CS_PIN   3
-#define RST_PIN  6
-#define DONE_PIN 5
-#define SPI_CHANNEL 0
-
-// Argv 1 file that is being burned
-
-int main (int argc, char** argv){
+void ICE40::setup(const uint8_t SPI_CHANNEL, const uint32_t clkSpeed){
+    // Initilize wiring pi libray
   wiringPiSetup () ;
   // SPI Mode 3, CPOL=1 CPHA=1, Clock Idle High, Sample on rising edge
-  wiringPiSPISetupMode(SPI_CHANNEL, 1000000, 3);
+  wiringPiSPISetupMode(_SPI_CHANNEL, clkSpeed, 3);
 
+  // Set pin modes
+  pinMode (_CS_PIN, OUTPUT);
+  pinMode (_RST_PIN, OUTPUT);
+  pinMode (_DONE_PIN, INPUT);
+  // Enable pullup resistor
+  pullUpDnControl (_DONE_PIN, PUD_UP);
+}
+
+void ICE40::configure(const char filename[]){
+  writeFile(filename);
+}
+
+
+void ICE40::writeFile(const char filename[]){
   // Import file
-  ifstream firmware;
-  firmware.open (argv[1], ios::binary); 
+  ifstream bitstream;
+  bitstream.open (filename, ios::binary);
+
+
+  // Determine file size 
+  uint16_t bitstreamSize = (int)bitstream.tellg();
+  bitstream.seekg (0, ios::end);
+  bitstreamSize = (int)bitstream.tellg() - bitstreamSize;
+  bitstream.seekg (0);
 
   // int *readBuffer = malloc(sizeof(char));
   // (sizeof(readBuffer)/sizeof(readBuffer[0]))
-  unsigned char data[0x1CA6+1];
+  // unsigned char *data = (unsigned char *) malloc( sizeof(*data) * (bitstreamSize+1));
+  printf("%X \n", bitstreamSize);
+  bitstreamSize = 0x1CA6;
+  printf("%X \n", bitstreamSize);
+  unsigned char *data = new unsigned char[bitstreamSize+1];
   char readBuffer[16];
-  for(int i = 0 ; i < 0x1CA6/16 + 1 ; i++ ){
-    firmware.read(readBuffer, 16);
+  for(int i = 0 ; i < (bitstreamSize/16) + 1 ; i++ ){
+    bitstream.read(readBuffer, 16);
     for(int j = 0 ; j < 8*2 ; j+=2 ){
       data[i*16 + j] = readBuffer[j];
       data[i*16 + j+1] = readBuffer[j+1];
     }
-    // printf("\n");
   }
 
   uint8_t lineWidth = 16;
-  for(int i = 0 ; i < sizeof(data) ; i+=lineWidth ){
+  for(int i = 0 ; i < bitstreamSize ; i+=lineWidth ){
     printf("%04x  ", i);
     for(int j = 0 ; j < lineWidth ; j++ ){
       printf("%02x", data[i+j]);
@@ -55,48 +76,47 @@ int main (int argc, char** argv){
   printf("\n");
   }
 
-  firmware.close();
+  bitstream.close();
 
-  // Pin setup
-  pinMode (CS_PIN, OUTPUT);
-  pinMode (RST_PIN, OUTPUT);
-  pinMode (DONE_PIN, INPUT);
+  burnData(data, bitstreamSize);
 
 
-  // Enable pullup resistor
-  pullUpDnControl (DONE_PIN, PUD_UP);
-  // Set CS Pin low
-  digitalWrite (CS_PIN,  LOW);
-  // Set RESET Pin low
-  digitalWrite (RST_PIN,  LOW);
-  // Delay Fig 13.2 200us+
-  delayMicroseconds (200);
-  // Set RESET Pin high
-  digitalWrite (RST_PIN,  HIGH);  
-  // Wait 1200us for internal memor clear 
-  delayMicroseconds (1200);
+}
+
+
+void ICE40::burnData(unsigned char *data, uint16_t length){
+  clear();
   // Set CS Pin high
-  digitalWrite (CS_PIN, HIGH);
+  digitalWrite (_CS_PIN, HIGH);
   // 8 Dummy Clocks
   unsigned char eightClocks[1] = {0xAA};
-  wiringPiSPIDataRW (SPI_CHANNEL, eightClocks, sizeof(eightClocks));
+  wiringPiSPIDataRW (_SPI_CHANNEL, eightClocks, sizeof(eightClocks));
   // Set CS Pin low
-  digitalWrite (CS_PIN, LOW);
-  // Write BIN file over SPI
-  // MSB First
+  digitalWrite (_CS_PIN, LOW);
+  // Write BIN file over SPI, MSB First
   // for(i = 0 ; i < sizeof(data)/0x1000 ; i++ ){
-    wiringPiSPIDataRW (SPI_CHANNEL, data, 0x1000);
-    wiringPiSPIDataRW (SPI_CHANNEL, &data[0x1000], (0x1CA6 - 0x1000)+1);
+    wiringPiSPIDataRW (_SPI_CHANNEL, data, 0x1000);
+    wiringPiSPIDataRW (_SPI_CHANNEL, &data[0x1000], (length - 0x1000)+1);
   // }
   
   // Set CS Pin high
-  digitalWrite (CS_PIN,  HIGH);
+  digitalWrite (_CS_PIN,  HIGH);
   // Clock dummy pulses
   unsigned char dummyPulses[20];
-  wiringPiSPIDataRW (SPI_CHANNEL, dummyPulses , sizeof(dummyPulses));
+  wiringPiSPIDataRW (_SPI_CHANNEL, dummyPulses , sizeof(dummyPulses));
   // Wait until done is high
-  while(!digitalRead(DONE_PIN)){}
-
-  return 0 ;
+  while(!digitalRead(_DONE_PIN)){}
 }
 
+void ICE40::clear(){
+  // Set CS Pin low
+  digitalWrite (_CS_PIN,  LOW);
+  // Set RESET Pin low
+  digitalWrite (_RST_PIN,  LOW);
+  // Delay Fig 13.2 200us+
+  delayMicroseconds (200);
+  // Set RESET Pin high
+  digitalWrite (_RST_PIN,  HIGH);  
+  // Wait 1200us for internal memor clear 
+  delayMicroseconds (1200);
+}
