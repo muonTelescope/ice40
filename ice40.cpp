@@ -51,18 +51,16 @@ void ICE40::writeFile(const char filename[]){
   bitstreamSize = (int)bitstream.tellg() - bitstreamSize;
   bitstream.seekg (0);
 
-  unsigned char *data = new unsigned char[bitstreamSize+1];
-  char readBuffer[16];
-  for(int i = 0 ; i < (bitstreamSize/16) ; i++ ){
-    bitstream.read(readBuffer, 16);
-    for(int j = 0 ; j < 8*2 ; j+=2 ){
-      data[i*16 + j] = readBuffer[j];
-      data[i*16 + j+1] = readBuffer[j+1];
-    }
+  unsigned char *data = new unsigned char[bitstreamSize];
+  for(int i = 0 ; i < bitstreamSize ; i++ ){
+    char readBuffer[1];
+    bitstream.read(readBuffer, 1);
+    data[i] = readBuffer[0];
   }
 
   //Print out file
   hexDump(data, bitstreamSize);
+
 
   bitstream.close();
 
@@ -113,10 +111,12 @@ void ICE40::clear(){
 void ICE40::hexDump(unsigned char *data, uint16_t length){
     //Print out file
   const uint8_t lineWidth = 16;
-  for(int i = 0 ; i < length ; i+=lineWidth ){
+  for(int i = 0 ; i < (length+1) ; i+=lineWidth ){
     printf("%04x  ", i);
     for(int j = 0 ; j < lineWidth ; j++ ){
-      printf("%02x", data[i+j]);
+      if(i+j < length){
+        printf("%02x", data[i+j]);
+      }
     }
   printf("\n");
   }
